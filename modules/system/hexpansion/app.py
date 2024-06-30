@@ -45,6 +45,7 @@ class HexpansionManagerApp(app.App):
         self.buttons = Buttons(self)
         self.hexpansion_apps = {}
         self.autolaunch = autolaunch
+        self.inserted_hexpansions = {}
 
     def update(self, delta):
         if len(self.format_requests) > 0 and self.format_dialog is None:
@@ -174,6 +175,31 @@ class HexpansionManagerApp(app.App):
         if self.autolaunch:
             self._launch_hexpansion_app(port)
 
+    def populated_ports(self):
+        return list(self.inserted_hexpansions.keys())
+
+    def locate_hexpansion(self, vid, pid): # Returns a list of ports if found as several of the same hexpansion might be inserted
+        found = []
+        for port,header in self.inserted_hexpansions.items():
+            if header is not None:
+                if header.vid == vid and header.pid == pid:
+                    found.append(port)
+        
+        if found:
+            found.sort()
+            return found
+        else:
+            return None
+
+    def get_header(self, port):
+        if port in self.inserted_hexpansions:
+            return self.inserted_hexpansions[port]
+        else:
+            return None
+
+    def is_populated(self, port):
+        return port in self.inserted_hexpansions
+
     async def handle_hexpansion_insertion(self, event):
         print(event)
         i2c = I2C(event.port)
@@ -182,10 +208,14 @@ class HexpansionManagerApp(app.App):
         addr, addr_len = detect_eeprom_addr(i2c)
         if addr is None:
             print("Scan found no eeproms")
+            self.inserted_hexpansions[event.port] = None
             return
 
         # Do we have a header?
         header = read_hexpansion_header(i2c, addr, addr_len=addr_len)
+        
+        self.inserted_hexpansions[event.port] = header
+        
         if header is None:
             return
 
@@ -227,6 +257,15 @@ class HexpansionManagerApp(app.App):
             self.format_dialog._cleanup()
             self.format_dialog = None
             eventbus.emit(RequestForegroundPopEvent(self))
+
+        if event.port in self.inserted_hexpansions:
+            del self.inserted_hexpansions[event.port]
+
+        for ls in HexpansionConfig(event.port).ls_pin:
+            ls.init(ls.IN)
+
+        for hs in HexpansionConfig(event.port).pin:
+            hs.init(hs.IN)
 
     async def background_task(self):
         tildagonos.set_led_power(True)

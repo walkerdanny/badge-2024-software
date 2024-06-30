@@ -2,9 +2,15 @@ from eeprom_i2c import EEPROM
 
 from eeprom_partition import EEPROMPartition
 from system.hexpansion.header import HexpansionHeader
+from system.scheduler import scheduler
 
 import typing
 
+def get_hexpansion_manager():
+    for app in scheduler.apps:
+        if type(app).__name__ is 'HexpansionManagerApp':
+            return app
+    return None
 
 def detect_eeprom_addr(i2c):
     devices = i2c.scan()
