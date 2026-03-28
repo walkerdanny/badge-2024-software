@@ -67257,6 +67257,18 @@ int vt_special_glyph (Ctx *ctx, VT *vt, float x, float y, int cw, int ch, int un
         }
         ctx_fill (ctx);
         return 0;
+      case 0x2b21: // White Hexagon
+        // Hexagon outline
+        ctx_begin_path (ctx);
+        ctx_move_to (ctx, x, y-ch/2);
+        ctx_rel_line_to (ctx, cw*0.25, -ch*0.4333);
+        ctx__rel_line_to (ctx, cw*0.5, 0);
+        ctx__rel_line_to (ctx, cw*0.25, ch*0.4333);
+        ctx__rel_line_to (ctx, -cw*0.5, ch*0.4333);
+        ctx__rel_line_to (ctx, -cw*0.5, 0);
+        ctx_rel_line_to (ctx, -cw*0.25, -ch*0.4333);
+        
+        return 0;
       case 0x1fb00:
       case 0x1fb01:
       case 0x1fb02:
