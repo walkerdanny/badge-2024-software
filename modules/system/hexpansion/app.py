@@ -32,7 +32,7 @@ import settings
 active_back_leds = [False] * 6
 
 
-def Hexspansion_inserted(epin):
+def Hexpansion_inserted(epin):
     for i, nPin in enumerate(HexpansionManagerApp.hexpansion_pins):
         if nPin is epin:
             if not settings.get("pattern_mirror_hexpansions", False):
@@ -42,7 +42,7 @@ def Hexspansion_inserted(epin):
             tildagonos.leds.write()
 
 
-def Hexspansion_removed(epin):
+def Hexpansion_removed(epin):
     for i, nPin in enumerate(HexpansionManagerApp.hexpansion_pins):
         if nPin is epin:
             tildagonos.leds[13 + i] = (0, 0, 0)
@@ -77,8 +77,8 @@ class HexpansionManagerApp(app.App):
         tildagonos.set_led_power(True)
 
         for i, pin in enumerate(HexpansionManagerApp.hexpansion_pins):
-            pin.irq(handler=Hexspansion_inserted, trigger=pin.IRQ_FALLING)
-            pin.irq(handler=Hexspansion_removed, trigger=pin.IRQ_RISING)
+            pin.irq(handler=Hexpansion_inserted, trigger=pin.IRQ_FALLING)
+            pin.irq(handler=Hexpansion_removed, trigger=pin.IRQ_RISING)
             if not pin.value():
                 if not settings.get("pattern_mirror_hexpansions", False):
                     tildagonos.leds[13 + i] = led_colours[i]
