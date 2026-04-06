@@ -2,7 +2,12 @@ import os
 
 import app
 from system.hexpansion.config import HexpansionConfig
-from system.hexpansion.events import HexpansionRemovalEvent, HexpansionInsertionEvent
+from system.hexpansion.events import (
+    HexpansionRemovalEvent,
+    HexpansionInsertionEvent, 
+    HexpansionAppRequestStartEvent,
+    HexpansionAppRequestStopEvent
+)
 from system.hexpansion.util import (
     read_hexpansion_header,
     get_hexpansion_block_devices,
@@ -67,6 +72,9 @@ class HexpansionManagerApp(app.App):
             HexpansionInsertionEvent, self.handle_hexpansion_insertion, self
         )
         eventbus.on_async(HexpansionRemovalEvent, self.handle_hexpansion_removal, self)
+        eventbus.on(HexpansionAppRequestStartEvent, self.handle_hexpansion_app_start, self)
+        eventbus.on(HexpansionAppRequestStopEvent, self.handle_hexpansion_app_stop, self)
+
         self.mountpoints = {}
         self.format_requests = []
         self.format_dialog = None
@@ -75,6 +83,7 @@ class HexpansionManagerApp(app.App):
         self.hexpansion_apps = {}
         self.autolaunch = autolaunch
         tildagonos.set_led_power(True)
+        self.inserted_hexpansions = {}
 
         for i, pin in enumerate(HexpansionManagerApp.hexpansion_pins):
             pin.irq(handler=Hexpansion_inserted, trigger=pin.IRQ_FALLING)
@@ -134,6 +143,11 @@ class HexpansionManagerApp(app.App):
 
     def _launch_hexpansion_app(self, port):
         if port not in self.mountpoints:
+            return
+
+        if port in self.hexpansion_apps:
+            # The hexpansion app is already running, foreground it. Avoids launching duplicate apps.
+            eventbus.emit(RequestForegroundPushEvent(self.hexpansion_apps[port]))
             return
 
         mount = self.mountpoints[port].lstrip("/")
@@ -222,6 +236,39 @@ class HexpansionManagerApp(app.App):
 
         if self.autolaunch:
             self._launch_hexpansion_app(port)
+
+    def populated_ports(self):
+        return list(self.inserted_hexpansions.keys())
+
+    def locate_hexpansion(self, vid, pid): # Returns a list of ports if found as several of the same hexpansion might be inserted
+        found = []
+        for port,header in self.inserted_hexpansions.items():
+            if header is not None:
+                if header.vid == vid and header.pid == pid:
+                    found.append(port)
+        
+        if found:
+            found.sort()
+            return found
+        else:
+            return None
+
+    def get_header(self, port):
+        if port in self.inserted_hexpansions:
+            return self.inserted_hexpansions[port]
+        else:
+            return None
+
+    def is_populated(self, port):
+        return port in self.inserted_hexpansions
+
+    def handle_hexpansion_app_start(self, event):
+        if event.port in self.hexpansion_apps:
+            self._launch_hexpansion_app(event.port)
+
+    def handle_hexpansion_app_stop(self, event):
+        if event.port in self.hexpansion_apps:
+            self._stop_hexpansion_app(self.hexpansion_apps[event.port], event.port)
 
     async def handle_hexpansion_insertion(self, event):
         print(event)
